@@ -1,6 +1,6 @@
 # This is a basic workflow to help you get started with Actions
 
-name: CI
+name: linux-wordpress
 
 # Controls when the workflow will run
 on:
@@ -18,7 +18,7 @@ jobs:
   # This workflow contains a single job called "build"
   build:
     # The type of runner that the job will run on
-    runs-on: ubuntu-latest
+    runs-on: Linux  # adjust OS image as per your deployment server OS
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -34,3 +34,42 @@ jobs:
         run: |
           echo Add other actions to build,
           echo test, and deploy your project.
+
+
+          name: Deploy to WordPress
+
+on:
+  push:
+    branches:
+      - main  # adjust the branch name as per your setup
+
+jobs:
+  install_httpd:
+    runs-on: Linux  # adjust OS image as per your deployment server OS
+
+    steps:
+    - name: Set up SSH
+      uses: webfactory/ssh-agent@v0.5.4
+      with:
+        ssh-private-key: ${{ secrets.DEPLOYMENT_SERVER_SSH_PRIVATE_KEY }}
+
+    - name: Install httpd
+      run: |
+        ssh ec2-user@3.82.230.111 'sudo yum update && sudo yum install -y httpd php unzip mariadb105-server php8.3-mysqlnd && sudo systemctl enable --now httpd && sudo systemctl enable --now  mariadb && rm -r /home/ec2-user/wordpress'
+        
+  Deploy_code:
+    runs-on: Linux
+    
+    steps:
+        - name: Checkout repository
+          uses: actions/checkout@v2
+          
+        - name: Set up SSH
+          uses: webfactory/ssh-agent@v0.5.4
+          with:
+            ssh-private-key: ${{ secrets.DEPLOYMENT_SERVER_SSH_PRIVATE_KEY }}
+
+        - name: copy artifact
+          run: |
+            scp latest.zip ec2-user@3.82.230.111://home/ec2-user/
+            ssh ec2-user@3.82.230.111 'cd /home/ec2-user/ && unzip latest.zip && sudo cp -r wordpress/ /var/www/html/ '
